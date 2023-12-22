@@ -1,6 +1,16 @@
 using axis_api.services;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.WebHost.UseUrls("https://localhost:5001");
+// Set up Kestrel to use a certificate from a file for HTTPS
+builder.WebHost.ConfigureKestrel(serverOptions =>
+{
+    serverOptions.ListenLocalhost(5001, listenOptions =>
+    {
+        listenOptions.UseHttps("certificate.pfx", "Le$ter1345");
+    });
+});
+
 
 // Add services to the container.
 builder.Services.AddControllers();

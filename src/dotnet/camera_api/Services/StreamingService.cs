@@ -30,6 +30,7 @@ namespace axis_api.services
                 CreateNoWindow = true,
                 RedirectStandardError = true // To capture error stream
             };
+            
             await Task.Run(() =>
             {
                 var process = new Process { StartInfo = startInfo };
@@ -46,7 +47,7 @@ namespace axis_api.services
                 process.Start();
 
                 // Optionally, read the output asynchronously
-                _ = Task.Run(() => LogOutputAsync(process));
+                // _ = Task.Run(() => LogOutputAsync(process));
             });
         }
         private async Task LogOutputAsync(Process process)

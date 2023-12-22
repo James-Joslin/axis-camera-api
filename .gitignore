@@ -401,3 +401,7 @@ datasets/
 .vscode/
 .idea/
 __MACOSX/
+
+*.pem
+*.ts
+*.m3u8
