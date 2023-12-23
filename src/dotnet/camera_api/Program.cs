@@ -2,6 +2,21 @@ using axis_api.services;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.UseUrls("https://localhost:5001");
+
+// Add services to the container. # CORS redirection to use specified domains and HTTPS when domain is set
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(
+        builder =>
+        {
+            builder.AllowAnyOrigin() // Adjust the ports accordingly when a front-end domain is actually specified/built
+                   .AllowAnyHeader()
+                   .AllowAnyMethod();
+        });
+});
+
+
+
 // Set up Kestrel to use a certificate from a file for HTTPS
 builder.WebHost.ConfigureKestrel(serverOptions =>
 {
@@ -29,7 +44,9 @@ if (app.Environment.IsDevelopment() || app.Environment.IsProduction())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+    app.UseCors();
 }
+
 
 app.UseHttpsRedirection();
 

@@ -69,5 +69,4 @@ public partial class SqlService
             throw new ArgumentException($"SQL path for key '{key}' not found.");
         }
     }
-
 }

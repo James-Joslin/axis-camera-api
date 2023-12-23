@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
 using axis_api.services;
-using axis_api.encryption;
 
 namespace axis_api.controllers
 {
@@ -20,6 +19,10 @@ namespace axis_api.controllers
         [HttpPost("start")]
         public async Task<IActionResult> StartStream(int cameraId)
         {
+            if (cameraId <= 0 || cameraId > 4) // Replace MaxCameraId with your actual maximum.
+            {
+                throw new ArgumentOutOfRangeException("cameraId is out of range.");
+            }
             try
             {
                 string sqlQuery = System.IO.File.ReadAllText(_sqlService.GetSqlQueryPath("GetCameraData"));
@@ -34,22 +37,7 @@ namespace axis_api.controllers
                 {
                     await _streamingService.StartStreaming(
                         cameraId,
-                        $"rtsp://{OpenSSLDecryptor.DecryptString(
-                            encryptedData.username ?? throw new InvalidOperationException("Invalid username"),
-                            Environment.GetEnvironmentVariable("ENC_KEY") ?? throw new InvalidOperationException("Invalid decryption key")
-                        )}:{OpenSSLDecryptor.DecryptString(
-                            encryptedData.password ?? throw new InvalidOperationException("Invalid password"),
-                            Environment.GetEnvironmentVariable("ENC_KEY") ?? throw new InvalidOperationException("Invalid decryption key")
-                        )}@{OpenSSLDecryptor.DecryptString(
-                            encryptedData.ip ?? throw new InvalidOperationException("Invalid IP Address"),
-                            Environment.GetEnvironmentVariable("ENC_KEY") ?? throw new InvalidOperationException("Invalid decryption key")
-                        )}:{OpenSSLDecryptor.DecryptString(
-                            encryptedData.port ?? throw new InvalidOperationException("Invalid port"),
-                            Environment.GetEnvironmentVariable("ENC_KEY") ?? throw new InvalidOperationException("Invalid decryption key")
-                        )}{OpenSSLDecryptor.DecryptString(
-                            encryptedData.endString ?? throw new InvalidOperationException("Invalid end string"),
-                            Environment.GetEnvironmentVariable("ENC_KEY") ?? throw new InvalidOperationException("Invalid decryption key")
-                        )}"
+                        encryptedData
                     );
                     return Ok();
                 }
