@@ -1,20 +1,390 @@
+:root {
+  --background-color: #121212;
+  --panel-color: #1f1f1f;
+  --accent-color: #1f1f1f;
+  --text-color: #FFFFFF;
+  --border-radius: 10px;
+}
+
+body {
+  font-family: 'Roboto', sans-serif;
+  background-color: var(--background-color);
+  color: var(--text-color);
+}
+
+.header {
+  background: var(--panel-color);
+  color: var(--text-color);
+  text-align: left; /* Left-align the text */
+  padding: 20px;
+  font-size: 1.5em; /* Adjust the size as needed */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.75);
+  border-radius: var(--border-radius);
+  margin: 20px; /* Add margin to all sides */
+}
+
 .stream-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 10px;
-  padding: 10px;
-  width: 100%;
-  height: 100vh; /* Adjust height as needed */
+  grid-template-columns: repeat(3, 1fr); 
+  grid-auto-rows: minmax(200px, auto); 
+  gap: 7.5px;
+  padding: 20px;
+  justify-content: center;
+  grid-auto-flow: row; 
+}
+
+/* For medium-sized screens, use 2 columns */
+@media (max-width: 990px) {
+  .stream-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* For small screens, use 1 column */
+@media (max-width: 600px) {
+  .stream-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .stream-panel {
-  background: #f0f0f0;
-  border: 1px solid #ccc;
-  padding: 5px;
-  box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.1);
+  background: var(--panel-color);
+  /* Remove padding-bottom if it's not needed anymore */
+  position: relative;
+  border-radius: var(--border-radius);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  display: flex; /* New line */
+  flex-direction: column; /* New line */
+  justify-content: space-between; /* New line */
 }
 
 video {
   width: 100%;
-  height: auto; /* Maintain aspect ratio */
+  height: auto;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+  border-radius: var(--border-radius);
 }
+
+.control-panel {
+  position: fixed;
+  bottom: 0;
+  height: 100%;
+  width: 100%;
+  background: var(--panel-color);
+  padding: 20px;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+}
+
+.control-panel button {
+  background: none;
+  border: none;
+  color: var(--text-color);
+  padding: 10px;
+  border-radius: var(--border-radius);
+  transition: background 0.3s ease;
+}
+
+.control-panel button:hover {
+  background: var(--accent-color);
+}
+
+.icon {
+  width: 24px;
+  height: 24px;
+}
+
+/* You may not need this if your ReactPlayer fills the panel */
+/* Remove if not needed */
+.video-wrapper {
+  width: 100%;
+  height: 100%; /* Ensure the wrapper fills the panel */
+  position: relative; /* Needed for absolute positioning */
+}
+
+.react-player-wrapper {
+  position: relative; /* Adjusted from absolute to relative */
+  height: 0;
+  padding-top: 56.25%; /* Aspect ratio for 16:9 videos */
+  /* If your videos have a different aspect ratio, adjust the padding-top value accordingly */
+}
+
+.react-player {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.react-player video::-webkit-media-controls-volume-slider,
+.react-player video::-webkit-media-controls-mute-button,
+.react-player video::--webkit-media-controls-panel {
+  display: none !important;
+}
+
+.react-player video::-moz-range-thumb {
+  display: none;
+}
+
+.react-player video::-ms-fullscreen {
+  display: none;
+}
+
+.custom-control-button {
+  background: var(--panel-color);
+  color: var(--text-color);
+  border: none;
+  padding: 10px;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+}
+
+.custom-control-button:hover,
+.custom-control-button:focus {
+  background: var(--accent-color);
+  outline: none; /* removes the default focus outline */
+}
+
+
+.play-pause-button {
+  align-self: flex-start; /* Align to the left */
+  margin-top: auto; /* Pushes the button to the bottom */
+  /* padding: 10px 15px; */
+  background: #12121200;
+  color: var(--text-color);
+  border: none;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-size: 1.5em; /* Scales with the font-size of the button's container */
+  width: 2.25em; /* Scales with the font-size of the button's container */
+  height: 2.25em; /* Scales with the font-size of the button's container */
+}
+
+.play-pause-button:hover {
+  opacity: 0.55;
+}
+
+.fullscreen-button {
+  position: absolute;
+  background: #12121200;
+  bottom: 0px;
+  right: 0px;
+  color: var(--text-color);
+  border: none;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-size: 1.5em; /* Scales with the font-size of the button's container */
+  width: 2.25em; /* Scales with the font-size of the button's container */
+  height: 2.25em; /* Scales with the font-size of the button's container */
+}
+
+.exit-fullscreen-button {
+  position: fixed; /* or absolute, depending on your layout */
+  z-index: 1000; /* Make sure it's above other elements */
+  bottom: 20px;
+  right: 20px;
+  padding: 10px;
+  border: none;
+  border-radius: 5px;
+  background-color: red; /* Choose a color that stands out */
+  color: white;
+  font-size: 16px;
+}
+
+.fullscreen-button:hover {
+  opacity: 0.55;
+}
+
+.react-player > video {
+  width: 100%;
+  height: 100%; /* Adjust height as necessary */
+  object-fit: contain; /* Prevents cropping of the video */
+  border-radius: var(--border-radius); /* Ensure rounded corners */
+}
+
+/* Adjust the video element to fill its container */
+video {
+  width: 100%;
+  height: 100%; /* Adjust height as necessary */
+  object-fit: cover; /* This will ensure the video covers the area, use 'contain' if you don't want cropping */
+}
+
+.camera-label {
+  position: absolute;
+  top: -10%; /* Positioned at the top of the panel */
+  left: 50%;
+  transform: translateX(-50%) translateY(-100%);
+  transition: transform 0.5s ease;
+  padding: 5px 10px;
+  background: rgba(0, 0, 0, 0.5);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
+  color: var(--text-color);
+  border-radius: var(--border-radius);
+  z-index: 10;
+  white-space: nowrap;
+  pointer-events: none; /* This will allow the mouse to hover over elements below the label */
+}
+
+.stream-panel:hover .camera-label {
+  transform: translateX(-50%) translateY(100%); /* Adjust translateY to control how far the label drops */
+}
+
+.expand-button {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  padding: 10px;
+  border: none;
+  background: var(--panel-color);
+  color: var(--text-color);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  z-index: 10;
+}
+
+.expand-button:hover {
+  background: var(--accent-color);
+  opacity: 0.55;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  position: relative;
+  background: #ffffff00;
+  padding: 20px;
+  z-index: 2000;
+  object-fit: contain; /* This will ensure the video fits within the frame without cropping */
+  width: 82.5%;
+}
+
+
+.close-modal {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-size: 2em; /* Scales with the font-size of the button's container */
+  width: 2.25em; /* Scales with the font-size of the button's container */
+  height: 2.25em; /* Scales with the font-size of the button's container */
+  padding: 1px 1px;
+  cursor: pointer;
+  background: none; /* Remove background */
+  border: none; /* Remove border */
+}
+
+.close-modal:hover {
+  opacity: 0.75;
+}
+
+/* CSS for hiding the PiP button in the shadow DOM of the video element (not reliable) */
+video::-webkit-media-controls-picture-in-picture-button {
+  display: none;
+}
+
+video::--webkit-media-controls-overlay-enclosure {
+  display: none;
+}
+
+.black-screen {
+  background-color: black;
+  width: 100%;
+  height: 100%; /* Make sure this matches the player's size */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: white; /* or any color that matches your design */
+}
+
+.custom-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1px; /* Adjust the gap between controls as needed */
+  padding: 1px;
+}
+
+/* Style for the play/pause button */
+.custom-controls button {
+  padding: 1px 1px;
+  cursor: pointer;
+}
+
+/* Style for the scrubber (range input) */
+.custom-controls input[type="range"] {
+  width: 100%;
+}
+
+/* Remove default track background and set a border-radius */
+input[type='range'] {
+ width: 100%; /* Full-width */
+  background: transparent; /* Remove default background */
+  cursor: pointer; /* Add a pointer cursor on hover */
+}
+
+/* WebKit (Chrome, Safari, etc.) */
+input[type='range']::-webkit-slider-runnable-track {
+  height: 4px; /* Adjust track height */
+  background: #ffbe6f;
+  border-radius: 10px; /* Rounded ends */
+}
+
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none; /* Override default appearance */
+  border: none; /* Remove default border */
+  height: 16px; /* Set a specific slider handle height */
+  width: 16px; /* Set a specific slider handle width */
+  border-radius: 50%; /* Make it circular */
+  background: yourThumbColor; /* Set your desired thumb color */
+  margin-top: -4px; /* Adjust the position to match the track */
+}
+
+/* Mozilla Firefox */
+input[type='range']::-moz-range-track {
+  height: 4px;
+  background: #ffbe6f;
+  border-radius: 10px;
+}
+
+input[type='range']::-moz-range-thumb {
+  border: none;
+  height: 16px;
+  width: 16px;
+  border-radius: 50%;
+  background: yourThumbColor;
+}
+
+/* Microsoft Edge */
+input[type='range']::-ms-track {
+  height: 4px;
+  background: transparent; /* Edge requires transparent background */
+  border-color: transparent;
+  color: transparent; /* Removes additional styling */
+  border-radius: 10px;
+}
+
+input[type='range']::-ms-thumb {
+  border: none;
+  height: 16px;
+  width: 16px;
+  border-radius: 50%;
+  background: yourThumbColor;
+}
+
+
+/* Add additional styles for typography, other states, and responsive design */
