@@ -13,6 +13,7 @@
 - Minimalist stylisation
 - Modal expanded panel playback
 - Custom playback UI
+- Encrypted PostgreSQL camera data database
 ### Currently TODO:
 - NodeJS encryption
 - Neural network overlays
