@@ -62,8 +62,9 @@ namespace axis_api.services
 
             // Construct the GStreamer pipeline
             string pipeline = $"sudo gst-launch-1.0 rtspsrc location={rtspUrl} protocols=tcp ! rtph264depay ! h264parse ! tee name=t " +
-                            $"t. ! queue ! h264parse ! mpegtsmux ! hlssink location={hlsPath} playlist-root=./ playlist-location={hlsPlaylistPath} max-files=40 target-duration=2 " +
-                            $"t. ! queue ! avdec_h264 ! videoconvert ! jpegenc ! multifilesink location={stillsPath} max-files=120 " +
+                            $"t. ! queue ! h264parse ! mpegtsmux ! hlssink location={hlsPath} playlist-root=./ playlist-location={hlsPlaylistPath} max-files=40 target-duration=1 " +
+                            // $"t. ! queue ! avdec_h264 ! videoconvert ! jpegenc,framerate=1/1 ! multifilesink location={stillsPath} max-files=20 " +
+                            $"t. ! queue ! avdec_h264 ! videoconvert ! videorate ! video/x-raw,framerate=5/1 ! jpegenc ! multifilesink location={stillsPath} max-files=20 " +
                             $"t. ! queue ! splitmuxsink location={shortTermPath} max-size-time=120000000000 max-files=20 ";
 
             // Define process start info

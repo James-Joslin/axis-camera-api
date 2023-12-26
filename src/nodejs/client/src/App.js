@@ -6,7 +6,7 @@ import Modal from './Modal';
 import './App.css';
 
 function App() {
-  const [cameraIds] = useState([1, 2]);
+  const [cameraIds] = useState([1, 2, 3]);
   const [playing, setPlaying] = useState(cameraIds.reduce((acc, id) => ({ ...acc, [id]: true }), {}));
 
   const handlePlayPause = (cameraId) => {
