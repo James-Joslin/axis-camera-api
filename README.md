@@ -21,4 +21,4 @@
   - Detection classfier
   - Object bounding box
 ### Style:
-![image](https://github.com/James-Joslin/axis-camera-api/assets/74412992/e1fefadf-6024-434a-b28b-8c627ea3bcc5)
+![image](https://github.com/James-Joslin/axis-camera-api/assets/74412992/e1379c85-0992-467f-a2fc-b9ab13e32044)
