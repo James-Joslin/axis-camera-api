@@ -20,3 +20,5 @@
   - Encoder to vector
   - Detection classfier
   - Object bounding box
+### Style:
+![image](https://github.com/James-Joslin/axis-camera-api/assets/74412992/e1fefadf-6024-434a-b28b-8c627ea3bcc5)
