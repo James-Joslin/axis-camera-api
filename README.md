@@ -4,6 +4,14 @@
 - RTSP network streaming
 - RTSP to HSL encoding
 - Hosted on c# api platform
-### Currently TODO:
 - HSL to browser based streaming
-- HTTPS encryption, currently in testing phase with HTTP
+- Short term archiving to .mkv
+- JPEG still capture for machine learning functionality
+- HTTPS api encryption
+- NodeJS server
+- React client
+- Minimalist stylisation
+- Modal expanded panel playback
+- Custom playback UI
+### Currently TODO:
+- NodeJS encryptiom
