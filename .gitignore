@@ -405,6 +405,8 @@ __MACOSX/
 *.pem
 *.ts
 *.m3u8
+*.jpeg
+*.mkv
 
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 

@@ -6,7 +6,7 @@ import Modal from './Modal';
 import './App.css';
 
 function App() {
-  const [cameraIds] = useState([1, 2, 3]);
+  const [cameraIds] = useState([1, 2]);
   const [playing, setPlaying] = useState(cameraIds.reduce((acc, id) => ({ ...acc, [id]: true }), {}));
 
   const handlePlayPause = (cameraId) => {
@@ -52,7 +52,7 @@ function App() {
               {playing[cameraId] ? (
                 <ReactPlayer
                   className="react-player"
-                  url={`/hls/camera_id${cameraId}/output.m3u8`}
+                  url={`/streams/camera_id${cameraId}/playlist.m3u8`}
                   playing={playing[cameraId]}
                   muted
                   width="100%"
@@ -83,7 +83,7 @@ function App() {
         className = "modal-player"
         isOpen={modalOpen}
         close={closeModal}
-        url={selectedCamera ? `/hls/camera_id${selectedCamera}/output.m3u8` : ''}
+        url={selectedCamera ? `/streams/camera_id${selectedCamera}/playlist.m3u8` : ''}
       />
     </>
   );

@@ -35,8 +35,8 @@ const axiosInstance = axios.create({
 
 // Directory where HLS (.m3u8 and .ts) files are stored.
 // This should point to the parent directory of your camera_id folders
-const hlsFolderPath = path.join(__dirname, '../dotnet/camera_api/streams/');
-app.use('/hls', express.static(hlsFolderPath));
+const hlsFolderPath = path.join(__dirname, '../dotnet/camera_api/streams/hls');
+app.use('/streams', express.static(hlsFolderPath));
 
 // Basic route for testing that the server is running
 app.get('/', (req, res) => res.send('Server is up and running!'));

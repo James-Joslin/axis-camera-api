@@ -40,43 +40,63 @@ namespace axis_api.services
                 return; // Exit the method if the URL is invalid
             }
 
-            string directoryPath = $"streams/camera_id{cameraId}";
-            Directory.CreateDirectory(directoryPath); // CreateDirectory is ok if already exists
+            string shortBasePath = $"./streams/short-term-storage";
+            string hlsBasePath = $"./streams/hls";
+            string stillsBasePath = $"./streams/stills";
 
-            List<string> ffmpegArgs = new List<string>()
-            {
-                "-i", rtspUrl, // Input file
-                "-c", "copy", // Codec options
-                "-f", "hls", // Format
-                "-hls_time", "1", // Segment length
-                "-hls_segment_filename", $"{directoryPath}/frame%03d.ts", // Segment filename pattern
-                "-hls_list_size", "40", // Maximum number of playlist entries
-                "-hls_flags", "delete_segments", $"{directoryPath}/output.m3u8" // HLS flags
-            };
+            // Specific camera paths
+            string shortTermDir = $"{shortBasePath}/camera_id{cameraId}";
+            string hlsDir = $"{hlsBasePath}/camera_id{cameraId}";
+            string stillsDir = $"{stillsBasePath}/camera_id{cameraId}";
+            
+            // Ensure directories exist
+            Directory.CreateDirectory(shortTermDir);
+            Directory.CreateDirectory(hlsDir);
+            Directory.CreateDirectory(stillsDir);
+
+            // Define the paths for the different types of streams
+            string shortTermPath = $"{shortTermDir}/segment%d.mkv";
+            string hlsPath = $"{hlsDir}/frame%d.ts";
+            string hlsPlaylistPath = $"{hlsDir}/playlist.m3u8";
+            string stillsPath = $"{stillsDir}/frame%d.jpeg";
+
+            // Construct the GStreamer pipeline
+            string pipeline = $"sudo gst-launch-1.0 rtspsrc location={rtspUrl} protocols=tcp ! rtph264depay ! h264parse ! tee name=t " +
+                            $"t. ! queue ! h264parse ! mpegtsmux ! hlssink location={hlsPath} playlist-root=./ playlist-location={hlsPlaylistPath} max-files=40 target-duration=2 " +
+                            $"t. ! queue ! avdec_h264 ! videoconvert ! jpegenc ! multifilesink location={stillsPath} max-files=120 " +
+                            $"t. ! queue ! splitmuxsink location={shortTermPath} max-size-time=120000000000 max-files=20 ";
+
+            // Define process start info
             var startInfo = new ProcessStartInfo
             {
-                FileName = "/usr/bin/ffmpeg",
-                Arguments = string.Join(" ", ffmpegArgs), // Join the arguments into a single string
+                FileName = "/usr/bin/bash",
+                Arguments = $"-c \"{pipeline}\"",
                 RedirectStandardOutput = true,
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardError = true
             };
 
+            // Asynchronously run the streaming process
+            
             await Task.Run(() =>
             {
                 var process = new Process { StartInfo = startInfo };
                 process.EnableRaisingEvents = true;
+
+                // Log output and errors for monitoring and debugging
                 process.OutputDataReceived += (sender, args) => Console.WriteLine(args.Data);
                 process.ErrorDataReceived += (sender, args) => Console.WriteLine(args.Data);
 
+                // Handle process exit for cleanup and tracking
                 process.Exited += (sender, args) =>
                 {
                     _activeStreams.TryRemove(cameraId, out _);
                     Console.WriteLine($"Stream for camera {cameraId} exited.");
                 };
 
-                _activeStreams[cameraId] = process;
+                // Start the process and begin asynchronously reading its output
+                _activeStreams.TryAdd(cameraId, process);
                 process.Start();
                 process.BeginOutputReadLine();
                 process.BeginErrorReadLine();

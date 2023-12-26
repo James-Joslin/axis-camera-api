@@ -231,7 +231,7 @@ video {
 }
 
 .stream-panel:hover .camera-label {
-  transform: translateX(-50%) translateY(100%); /* Adjust translateY to control how far the label drops */
+  transform: translateX(-50%) translateY(120%); /* Adjust translateY to control how far the label drops */
 }
 
 .expand-button {
@@ -280,16 +280,21 @@ video {
   top: 10px;
   right: 10px;
   font-size: 2em; /* Scales with the font-size of the button's container */
-  width: 2.25em; /* Scales with the font-size of the button's container */
-  height: 2.25em; /* Scales with the font-size of the button's container */
-  padding: 1px 1px;
+  width: 1.5em; /* Scales with the font-size of the button's container */
+  height: 1.5em; /* Scales with the font-size of the button's container */
+  /* padding: 10px 10px; */
+  border: none;
   cursor: pointer;
-  background: none; /* Remove background */
-  border: none; /* Remove border */
+  background: #686868;
+  border-radius: 10px;
+  margin: 15px;
+  opacity: 1;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 1);
 }
 
 .close-modal:hover {
-  opacity: 0.75;
+  opacity: 1;
+  background:#121212;
 }
 
 /* CSS for hiding the PiP button in the shadow DOM of the video element (not reliable) */
@@ -339,7 +344,7 @@ input[type='range'] {
 
 /* WebKit (Chrome, Safari, etc.) */
 input[type='range']::-webkit-slider-runnable-track {
-  height: 4px; /* Adjust track height */
+  height: 3px; /* Adjust track height */
   background: #ffbe6f;
   border-radius: 10px; /* Rounded ends */
 }
@@ -356,7 +361,7 @@ input[type='range']::-webkit-slider-thumb {
 
 /* Mozilla Firefox */
 input[type='range']::-moz-range-track {
-  height: 4px;
+  height: 3px;
   background: #ffbe6f;
   border-radius: 10px;
 }
@@ -371,7 +376,7 @@ input[type='range']::-moz-range-thumb {
 
 /* Microsoft Edge */
 input[type='range']::-ms-track {
-  height: 4px;
+  height: 3px;
   background: transparent; /* Edge requires transparent background */
   border-color: transparent;
   color: transparent; /* Removes additional styling */
