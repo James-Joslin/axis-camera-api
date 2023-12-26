@@ -14,4 +14,8 @@
 - Modal expanded panel playback
 - Custom playback UI
 ### Currently TODO:
-- NodeJS encryptiom
+- NodeJS encryption
+- Neural network overlays
+  - Encoder to vector
+  - Detection classfier
+  - Object bounding box
