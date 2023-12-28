@@ -14,6 +14,12 @@ namespace axis_api.controllers
         {
             _streamingService = streamingService;
             _sqlService = sqlService;
+
+            int workerThreads, completionPortThreads;
+            ThreadPool.GetMaxThreads(out workerThreads, out completionPortThreads);
+
+            Console.WriteLine($"Max worker threads: {workerThreads}, Max completion port threads: {completionPortThreads}");
+
         }
 
         [HttpPost("start")]
@@ -57,11 +63,11 @@ namespace axis_api.controllers
                 return StatusCode(500, "An error occurred while processing your request: " + ex.Message);
             }
         }
-        [HttpPost("stop")]
-        public IActionResult StopStream(int cameraId)
-        {
-            _streamingService.StopStreaming(cameraId);
-            return Ok();
-        }
+        // [HttpPost("stop")]
+        // public IActionResult StopStream(int cameraId)
+        // {
+        //     _streamingService.StopStreaming(cameraId);
+        //     return Ok();
+        // }
     }
 }

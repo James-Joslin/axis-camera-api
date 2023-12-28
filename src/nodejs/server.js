@@ -60,9 +60,7 @@ async function startCameraStreams(cameraIds) {
 // Delay the initial camera stream requests by 5 seconds after server start
 setTimeout(() => {
   startCameraStreams([1, 2, 3]); // Add more camera IDs as needed
-}, 500);
+}, 50);
 
 // Delay the server start by 5 seconds (5000 milliseconds)
-setTimeout(() => {
-  app.listen(port, () => console.log(`Server listening on port ${port}`));
-}, 100);
+app.listen(port, () => console.log(`Server listening on port ${port}`));

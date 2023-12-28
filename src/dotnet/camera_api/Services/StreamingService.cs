@@ -7,16 +7,16 @@ namespace axis_api.services
 {
     public class StreamingService
     {
-        private ConcurrentDictionary<int, Process> _activeStreams = new ConcurrentDictionary<int, Process>();
+        // private ConcurrentDictionary<int, Process> _activeStreams = new ConcurrentDictionary<int, Process>();
 
         public async Task StartStreaming(int cameraId, EncryptedData encryptedData)
         {
             // Ensure only one stream per camera
-            if (_activeStreams.ContainsKey(cameraId))
-            {
-                Console.WriteLine($"Stream for camera {cameraId} is already running.");
-                return;
-            }
+            // if (_activeStreams.ContainsKey(cameraId))
+            // {
+            //     Console.WriteLine($"Stream for camera {cameraId} is already running.");
+            //     return;
+            // }
             string rtspUrl = $"rtsp://{OpenSSLDecryptor.DecryptString(
                 encryptedData.username ?? throw new InvalidOperationException("Invalid username"),
                 Environment.GetEnvironmentVariable("ENC_KEY") ?? throw new InvalidOperationException("Invalid decryption key")
@@ -61,11 +61,13 @@ namespace axis_api.services
             string stillsPath = $"{stillsDir}/frame%d.jpeg";
 
             // Construct the GStreamer pipeline
-            string pipeline = $"sudo gst-launch-1.0 rtspsrc location={rtspUrl} protocols=tcp ! rtph264depay ! h264parse ! tee name=t " +
-                            $"t. ! queue ! h264parse ! mpegtsmux ! hlssink location={hlsPath} playlist-root=./ playlist-location={hlsPlaylistPath} max-files=40 target-duration=1 " +
-                            // $"t. ! queue ! avdec_h264 ! videoconvert ! jpegenc,framerate=1/1 ! multifilesink location={stillsPath} max-files=20 " +
-                            $"t. ! queue ! avdec_h264 ! videoconvert ! videorate ! video/x-raw,framerate=5/1 ! jpegenc ! multifilesink location={stillsPath} max-files=20 " +
-                            $"t. ! queue ! splitmuxsink location={shortTermPath} max-size-time=120000000000 max-files=20 ";
+            string pipeline = $"sudo GST_DEBUG=3 gst-launch-1.0 rtspsrc location={rtspUrl} protocols=tcp " +
+                            $"latency=200 ! rtph264depay ! h264parse config-interval=-1 ! tee name=t " +
+                            $"t. ! queue ! h264parse ! mpegtsmux name=mux ! hlssink location={hlsPath} " +
+                            $"playlist-root=./ playlist-location={hlsPlaylistPath} max-files=30 target-duration=1 " +
+                            $"t. ! queue ! avdec_h264 ! videoconvert ! videorate ! video/x-raw,framerate=5/1 ! jpegenc ! multifilesink location={stillsPath} max-files=20 sync=false " +
+                            $"t. ! queue ! splitmuxsink location={shortTermPath} max-size-time=120000000000 max-files=45";
+
 
             // Define process start info
             var startInfo = new ProcessStartInfo
@@ -90,14 +92,14 @@ namespace axis_api.services
                 process.ErrorDataReceived += (sender, args) => Console.WriteLine(args.Data);
 
                 // Handle process exit for cleanup and tracking
-                process.Exited += (sender, args) =>
-                {
-                    _activeStreams.TryRemove(cameraId, out _);
-                    Console.WriteLine($"Stream for camera {cameraId} exited.");
-                };
+                // process.Exited += (sender, args) =>
+                // {
+                //     _activeStreams.TryRemove(cameraId, out _);
+                //     Console.WriteLine($"Stream for camera {cameraId} exited.");
+                // };
 
-                // Start the process and begin asynchronously reading its output
-                _activeStreams.TryAdd(cameraId, process);
+                // // Start the process and begin asynchronously reading its output
+                // _activeStreams.TryAdd(cameraId, process);
                 process.Start();
                 process.BeginOutputReadLine();
                 process.BeginErrorReadLine();
@@ -153,51 +155,52 @@ namespace axis_api.services
                     return false; // Not a local IP address
             }
         }
-        public void StopStreaming(int cameraId)
-        {
-            if (_activeStreams.TryRemove(cameraId, out Process? process))
-            {
-                try
-                {
-                    if (!process.HasExited)
-                    {
-                        process.Kill();
-                        process.WaitForExit();
-                        Console.WriteLine($"Stopped streaming for camera {cameraId}.");
-                    }
-                    else
-                    {
-                        Console.WriteLine($"Streaming for camera {cameraId} has already exited.");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error stopping streaming for camera {cameraId}: {ex.Message}");
-                }
-                finally
-                {
-                    process.Dispose();
-                }
-            }
-            else
-            {
-                Console.WriteLine($"No active stream found for camera {cameraId}.");
-            }
-        }
-        public void StopAllStreams()
-        {
-            foreach (var entry in _activeStreams.Keys.ToList())
-            {
-                if (_activeStreams.TryRemove(entry, out Process? process))
-                {
-                    if (!process.HasExited)
-                    {
-                        process.Kill();
-                        process.WaitForExit();
-                        process.Dispose();
-                    }
-                }
-            }
-        }
+
+        // public void StopStreaming(int cameraId)
+        // {
+        //     if (_activeStreams.TryRemove(cameraId, out Process? process))
+        //     {
+        //         try
+        //         {
+        //             if (!process.HasExited)
+        //             {
+        //                 process.Kill();
+        //                 process.WaitForExit();
+        //                 Console.WriteLine($"Stopped streaming for camera {cameraId}.");
+        //             }
+        //             else
+        //             {
+        //                 Console.WriteLine($"Streaming for camera {cameraId} has already exited.");
+        //             }
+        //         }
+        //         catch (Exception ex)
+        //         {
+        //             Console.WriteLine($"Error stopping streaming for camera {cameraId}: {ex.Message}");
+        //         }
+        //         finally
+        //         {
+        //             process.Dispose();
+        //         }
+        //     }
+        //     else
+        //     {
+        //         Console.WriteLine($"No active stream found for camera {cameraId}.");
+        //     }
+        // }
+        // public void StopAllStreams()
+        // {
+        //     foreach (var entry in _activeStreams.Keys.ToList())
+        //     {
+        //         if (_activeStreams.TryRemove(entry, out Process? process))
+        //         {
+        //             if (!process.HasExited)
+        //             {
+        //                 process.Kill();
+        //                 process.WaitForExit();
+        //                 process.Dispose();
+        //             }
+        //         }
+        //     }
+        // }
     }
 }
