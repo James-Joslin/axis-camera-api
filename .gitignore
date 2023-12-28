@@ -431,3 +431,6 @@ __MACOSX/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+secrets.json
+src/python/*json
