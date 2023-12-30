@@ -63,11 +63,11 @@ namespace axis_api.controllers
                 return StatusCode(500, "An error occurred while processing your request: " + ex.Message);
             }
         }
-        // [HttpPost("stop")]
-        // public IActionResult StopStream(int cameraId)
-        // {
-        //     _streamingService.StopStreaming(cameraId);
-        //     return Ok();
-        // }
+        [HttpPost("stop")]
+        public IActionResult StopStream(int cameraId)
+        {
+            _streamingService.StopStreaming(cameraId);
+            return Ok();
+        }
     }
 }

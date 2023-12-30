@@ -7,16 +7,16 @@ namespace axis_api.services
 {
     public class StreamingService
     {
-        // private ConcurrentDictionary<int, Process> _activeStreams = new ConcurrentDictionary<int, Process>();
+        private ConcurrentDictionary<int, Process> _activeStreams = new ConcurrentDictionary<int, Process>();
 
         public async Task StartStreaming(int cameraId, EncryptedData encryptedData)
         {
             // Ensure only one stream per camera
-            // if (_activeStreams.ContainsKey(cameraId))
-            // {
-            //     Console.WriteLine($"Stream for camera {cameraId} is already running.");
-            //     return;
-            // }
+            if (_activeStreams.ContainsKey(cameraId))
+            {
+                Console.WriteLine($"Stream for camera {cameraId} is already running.");
+                return;
+            }
             string rtspUrl = $"rtsp://{OpenSSLDecryptor.DecryptString(
                 encryptedData.username ?? throw new InvalidOperationException("Invalid username"),
                 Environment.GetEnvironmentVariable("ENC_KEY") ?? throw new InvalidOperationException("Invalid decryption key")
@@ -92,14 +92,14 @@ namespace axis_api.services
                 process.ErrorDataReceived += (sender, args) => Console.WriteLine(args.Data);
 
                 // Handle process exit for cleanup and tracking
-                // process.Exited += (sender, args) =>
-                // {
-                //     _activeStreams.TryRemove(cameraId, out _);
-                //     Console.WriteLine($"Stream for camera {cameraId} exited.");
-                // };
+                process.Exited += (sender, args) =>
+                {
+                    _activeStreams.TryRemove(cameraId, out _);
+                    Console.WriteLine($"Stream for camera {cameraId} exited.");
+                };
 
-                // // Start the process and begin asynchronously reading its output
-                // _activeStreams.TryAdd(cameraId, process);
+                // Start the process and begin asynchronously reading its output
+                _activeStreams.TryAdd(cameraId, process);
                 process.Start();
                 process.BeginOutputReadLine();
                 process.BeginErrorReadLine();
@@ -156,51 +156,51 @@ namespace axis_api.services
             }
         }
 
-        // public void StopStreaming(int cameraId)
-        // {
-        //     if (_activeStreams.TryRemove(cameraId, out Process? process))
-        //     {
-        //         try
-        //         {
-        //             if (!process.HasExited)
-        //             {
-        //                 process.Kill();
-        //                 process.WaitForExit();
-        //                 Console.WriteLine($"Stopped streaming for camera {cameraId}.");
-        //             }
-        //             else
-        //             {
-        //                 Console.WriteLine($"Streaming for camera {cameraId} has already exited.");
-        //             }
-        //         }
-        //         catch (Exception ex)
-        //         {
-        //             Console.WriteLine($"Error stopping streaming for camera {cameraId}: {ex.Message}");
-        //         }
-        //         finally
-        //         {
-        //             process.Dispose();
-        //         }
-        //     }
-        //     else
-        //     {
-        //         Console.WriteLine($"No active stream found for camera {cameraId}.");
-        //     }
-        // }
-        // public void StopAllStreams()
-        // {
-        //     foreach (var entry in _activeStreams.Keys.ToList())
-        //     {
-        //         if (_activeStreams.TryRemove(entry, out Process? process))
-        //         {
-        //             if (!process.HasExited)
-        //             {
-        //                 process.Kill();
-        //                 process.WaitForExit();
-        //                 process.Dispose();
-        //             }
-        //         }
-        //     }
-        // }
+        public void StopStreaming(int cameraId)
+        {
+            if (_activeStreams.TryRemove(cameraId, out Process? process))
+            {
+                try
+                {
+                    if (!process.HasExited)
+                    {
+                        process.Kill();
+                        process.WaitForExit();
+                        Console.WriteLine($"Stopped streaming for camera {cameraId}.");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Streaming for camera {cameraId} has already exited.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error stopping streaming for camera {cameraId}: {ex.Message}");
+                }
+                finally
+                {
+                    process.Dispose();
+                }
+            }
+            else
+            {
+                Console.WriteLine($"No active stream found for camera {cameraId}.");
+            }
+        }
+        public void StopAllStreams()
+        {
+            foreach (var entry in _activeStreams.Keys.ToList())
+            {
+                if (_activeStreams.TryRemove(entry, out Process? process))
+                {
+                    if (!process.HasExited)
+                    {
+                        process.Kill();
+                        process.WaitForExit();
+                        process.Dispose();
+                    }
+                }
+            }
+        }
     }
 }
