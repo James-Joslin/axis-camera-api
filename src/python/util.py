@@ -27,9 +27,6 @@ import re
 import torch
 from torch.utils.data import Dataset
 
-import cv2
-
-# Data input
 import json
 import os
 import cv2
