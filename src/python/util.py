@@ -31,6 +31,8 @@ import json
 import os
 import cv2
 
+from tqdm import tqdm
+
 class Preprocessor:
     def __init__(self, image_directories, annotations_path, processed_image_dir, target_size=(600, 480)):
         self.image_directories = image_directories
