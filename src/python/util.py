@@ -27,74 +27,9 @@ import re
 import torch
 from torch.utils.data import Dataset
 
-import torchvision.models.detection
-from torchvision.models import mobilenet_v2, MobileNet_V2_Weights
-from torchvision.models.detection.backbone_utils import BackboneWithFPN
-from torchvision.models.detection.anchor_utils import AnchorGenerator
+import cv2
 
 # Models
-def create_mobilenetv2_ssd(num_classes, image_size=(480, 640)):
-    # Load pre-trained MobileNetV2
-    dummy_input = torch.randn(1, 3, 480, 640)  # Batch size of 1, 3 color channels, 480x640 image
-
-    weights = MobileNet_V2_Weights.DEFAULT
-    mobilenetv2_backbone = mobilenet_v2(weights=weights).features
-    backbone_out_channels = mobilenetv2_backbone[-1].out_channels
-    
-    with torch.no_grad():  # We don't need to compute gradients for this
-        for i, layer in enumerate(mobilenetv2_backbone):
-            dummy_input = layer(dummy_input)
-            if i in [4, 10]:  # Layers of interest
-                print(f"Output shape after layer {i}: {dummy_input.shape}")
-                
-    # Freeze the early layers of the model
-    for param in mobilenetv2_backbone[:14].parameters():
-        param.requires_grad = False
-
-    backbone = BackboneWithFPN(
-        backbone=mobilenetv2_backbone,
-        return_layers={'4': '0', '10': '1', '18': '2'},
-        in_channels_list=[32, 64, 1280],  # Updated channel sizes
-        out_channels=backbone_out_channels
-    )
-
-    # Define the anchor generator
-    anchor_sizes = ((32,), (64,), (128,), (256,))  # Add an additional size for the 'pool' level
-    aspect_ratios = ((0.5, 1.0, 2.0),) * len(anchor_sizes)  # Ensure this matches the number of feature maps
-
-    anchor_generator = AnchorGenerator(sizes=anchor_sizes, aspect_ratios=aspect_ratios)
-
-    # Create the SSD head with the number of classes
-    ssd_head = torchvision.models.detection.ssd.SSDHead(
-        in_channels=[backbone.out_channels],
-        num_anchors=anchor_generator.num_anchors_per_location(),
-        num_classes=num_classes
-    )
-
-    # Create the full SSD model
-    # Define image normalization means and stds
-    image_mean = [0.485, 0.456, 0.406]  # Commonly used ImageNet mean
-    image_std = [0.229, 0.224, 0.225]  # Commonly used ImageNet std
-
-    # Create the full SSD model
-    model = torchvision.models.detection.ssd.SSD(
-        backbone=backbone,
-        anchor_generator=anchor_generator,
-        size=image_size,
-        num_classes=num_classes,
-        image_mean=image_mean,
-        image_std=image_std,
-        head=ssd_head,  # If you created an SSDHead separately, otherwise set to None and the default head will be used
-        score_thresh=0.01,
-        nms_thresh=0.45,
-        detections_per_img=200,
-        iou_thresh=0.5,
-        topk_candidates=400,
-        positive_fraction=0.25
-        # Add any other specific kwargs as needed
-    )
-    # print(model)
-    return model
 
 # Data input
 def string_to_json(parent_dir: str):
@@ -176,6 +111,29 @@ def collate_fn(batch):
     images = torch.stack(images, dim=0)
 
     return images, targets
+
+def preprocess_image(image_path, target_width=600, target_height=480):
+    # Read the image
+    image = cv2.imread(image_path)
+    
+    # Calculate the aspect ratio
+    h, w, _ = image.shape
+    scale = min(target_width/w, target_height/h)
+    
+    # Resize the image
+    new_w, new_h = int(w * scale), int(h * scale)
+    resized = cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_AREA)
+    
+    # Create a new image with the target size and put the resized image into it
+    preprocessed = cv2.copyMakeBorder(resized, 
+                                      top=(target_height - new_h) // 2, 
+                                      bottom=(target_height - new_h) // 2, 
+                                      left=(target_width - new_w) // 2, 
+                                      right=(target_width - new_w) // 2, 
+                                      borderType=cv2.BORDER_CONSTANT, 
+                                      value=[0, 0, 0])  # Black padding
+    
+    return preprocessed
 
 # Output and export
 def export_to_onnx(onnx_base_path, onnx_name, model:nn.Module, checkpoint, input_size):
@@ -281,4 +239,3 @@ def load_checkpoint(directory):
         return checkpoint
     else:
         pass
-    
