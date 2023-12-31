@@ -29,39 +29,104 @@ from torch.utils.data import Dataset
 
 import cv2
 
-# Models
-
 # Data input
-def string_to_json(parent_dir: str):
-    for i, annos in enumerate(glob.glob(f'{parent_dir}*')):
-        all_data = []  # Initialize an empty list to hold all data
-        
-        # Read the annotation file
-        with open(annos, 'r') as file:
-            for line in file.readlines():
-                # Split the line into the image path and the bounding boxes
-                path, boxes_str = line.strip().split(': ')
-                
-                ints = [int(s) for s in re.findall(r'\b\d+\b', boxes_str)]
-                res = [ints[i:i+4] for i in range(0, len(ints), 4)]  # Convert to list of lists for JSON compatibility
-                
-                # Create a dictionary for this image
-                image_data = {
-                    'image': path.strip('"'),
-                    'boxes': res
-                }
-                
-                # Add the dictionary to the list of all data
-                all_data.append(image_data)
+import json
+import os
+import cv2
+
+class Preprocessor:
+    def __init__(self, image_directories, annotations_path, processed_image_dir, target_size=(600, 480)):
+        self.image_directories = image_directories
+        self.annotations_path = annotations_path
+        self.processed_image_dir = processed_image_dir 
+        self.target_width, self.target_height = target_size
+
+        if not os.path.exists(self.processed_image_dir):
+            os.makedirs(self.processed_image_dir)
+
+    def read_annotations(self, file_path):
+        annotations = []
+        with open(file_path, 'r') as file:
+            for line in file:
+                data = json.loads(line.strip())
+                annotations.append(data)
+        return annotations
+
+    def preprocess_images(self):
+        annotations = self.read_annotations(self.annotations_path)
+        all_fboxes = []
+
+        for annotation in annotations:
+            image_id = annotation['ID']
+            image_file = self.find_image(image_id)
+            if image_file:
+                image = cv2.imread(image_file)
+                processed_image, adjusted_annotations = self.transform(image, annotation)
+                all_fboxes.append({'ID': image_id, 'fboxes': adjusted_annotations['fboxes']})
+
+                # Optionally save the processed image
+                self.save_image(image_id, processed_image)
+
+        # Save all fboxes to a new JSON file
+        self.save_fboxes_json(all_fboxes)
+
+    def find_image(self, image_id):
+        for directory in self.image_directories:
+            for filename in os.listdir(directory):
+                if filename.startswith(image_id):
+                    return os.path.join(directory, filename)
+        return None
+
+    def transform(self, image, annotation):
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+        orig_height, orig_width, _ = image.shape
+        boxes = annotation['gtboxes']
+
+        # Resize the image while maintaining aspect ratio
+        scale = min(self.target_width / orig_width, self.target_height / orig_height)
+        new_width, new_height = int(orig_width * scale), int(orig_height * scale)
+        resized_image = cv2.resize(image, (new_width, new_height), interpolation=cv2.INTER_AREA)
+
+        # Calculate padding to maintain aspect ratio
+        pad_x = (self.target_width - new_width) // 2
+        pad_y = (self.target_height - new_height) // 2
+
+        # Pad the resized image to the target dimensions
+        processed_image = cv2.copyMakeBorder(resized_image, pad_y, pad_y, pad_x, pad_x, cv2.BORDER_CONSTANT, value=[0, 0, 0])
+
+        # Adjust bounding boxes
+        adjusted_boxes = [self.adjust_bbox(box['fbox'], scale, pad_x, pad_y) for box in boxes]
+
+        # Update the annotations with adjusted bounding boxes
+        adjusted_annotations = annotation.copy()
+        adjusted_annotations['gtboxes'] = [{'fbox': box} for box in adjusted_boxes]
+
+        return processed_image, adjusted_annotations
+
+    def adjust_bbox(self, bbox, scale, pad_x, pad_y):
+        x, y, w, h = bbox
+        x = int(x * scale + pad_x)
+        y = int(y * scale + pad_y)
+        w = int(w * scale)
+        h = int(h * scale)
+        return [x, y, w, h]
+
+    def save_fboxes_json(self, all_fboxes):
+        with open('processed_fboxes.json', 'w') as file:
+            json.dump(all_fboxes, file, indent=4)
         file.close()
 
-        # Convert the list of data to JSON format
-        json_data = json.dumps(all_data, indent=4)
+    def save_image(self, image_id, processed_image):
+        # Convert RGB back to BGR for saving
+        processed_image_bgr = cv2.cvtColor(processed_image, cv2.COLOR_RGB2BGR)
 
-        # Write the JSON data to a new file
-        with open(f'./src/python/annotations_data{i+1}.json', 'w') as json_file:
-            json_file.write(json_data)
-        json_file.close()
+        # Use the image ID from the annotations as the filename
+        new_filename = f"{image_id}.jpg"  # You can add a prefix or suffix if desired
+        new_path = os.path.join(self.processed_image_dir, new_filename)
+
+        # Save the processed image
+        cv2.imwrite(new_path, processed_image_bgr)
 
 # Dataloading
 def split_data(train_size:float, val_size:float, test_size:float, x_data:np.array, y_data):
