@@ -47,4 +47,3 @@ rm CrowdHuman_train03.zip
 rm CrowdHuman_val.zip
 
 rm /tmp/cookie
-rm cookie.txt
