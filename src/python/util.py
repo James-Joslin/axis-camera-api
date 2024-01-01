@@ -42,6 +42,9 @@ class Preprocessor:
         self.processed_annotations_dir = processed_annotations_dir
         self.target_width, self.target_height = target_size
 
+        if not os.path.exists(self.processed_annotations_dir):
+            os.makedirs(self.processed_annotations_dir)
+
         if not os.path.exists(self.processed_image_dir):
             os.makedirs(self.processed_image_dir)
 
@@ -73,7 +76,7 @@ class Preprocessor:
                 # self.save_image(image_id, processed_image)
 
         # Save all fboxes to a new JSON file
-        self.save_fboxes_json(all_fboxes, "annotations")
+        self.save_fboxes_json(all_fboxes, "annotations.json")
 
     def find_image(self, image_id):
         for directory in self.image_directories:
@@ -150,7 +153,7 @@ class Preprocessor:
 
     def save_fboxes_json(self, all_fboxes, file_name):
         path = os.path.join(self.processed_annotations_dir, file_name)
-        with open(f'{path}.json', 'w') as file:
+        with open(f'{path}', 'w') as file:
             json.dump(all_fboxes, file, indent=4)
         file.close()
 
