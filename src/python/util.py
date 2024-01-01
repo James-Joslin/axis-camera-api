@@ -1,32 +1,20 @@
 import pandas as pd
 import numpy as np
 
-from sqlalchemy import create_engine
 import numpy as np
-from itertools import product
-from collections import Counter
-from sklearn.model_selection import train_test_split
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.utils.data import Dataset
 
 import os
 import json
 import random
-import ast
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-import seaborn as sns
-from sklearn.model_selection import StratifiedShuffleSplit
 
-import datetime
-import glob
-import re
-
-import torch
-from torch.utils.data import Dataset
 
 import json
 import os
@@ -34,8 +22,11 @@ import cv2
 
 from tqdm import tqdm
 
+from torch.utils.tensorboard import SummaryWriter
+
+# Data prep
 class Preprocessor:
-    def __init__(self, image_directories, annotations_path, processed_image_dir, processed_annotations_dir, target_size=(600, 480)):
+    def __init__(self, image_directories, annotations_path, processed_image_dir, processed_annotations_dir, target_size):
         self.image_directories = image_directories
         self.annotations_path = annotations_path
         self.processed_image_dir = processed_image_dir 
@@ -66,14 +57,18 @@ class Preprocessor:
             if image_file:
                 image = cv2.imread(image_file)
                 processed_image, adjusted_annotations = self.transform(image, annotation)
+                # print(processed_image.shape)
                 # self.plot_image_with_boxes(processed_image, adjusted_annotations, image_id, './src/python/temp/')
-                all_fboxes.append({
-                    'ID': image_id, 
-                    'persons': [box['fbox'] for box in adjusted_annotations['persons']],
-                    'masks': [box['fbox'] for box in adjusted_annotations['masks']]
-                })
-                # Optionally save the processed image
-                # self.save_image(image_id, processed_image)
+                # print(adjusted_annotations)
+                if self.has_valid_contents(adjusted_annotations):
+                    all_fboxes.append({
+                        'ID': image_id, 
+                        'persons': [box['fbox'] for box in adjusted_annotations['persons']],
+                        'masks': [box['fbox'] for box in adjusted_annotations['masks']]
+                    })
+                    self.save_image(image_id, processed_image)
+                else:
+                    pass
 
         # Save all fboxes to a new JSON file
         self.save_fboxes_json(all_fboxes, "annotations.json")
@@ -87,21 +82,27 @@ class Preprocessor:
 
     def transform(self, image, annotation):
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
         orig_height, orig_width, _ = image.shape
-        # boxes = annotation['gtboxes']
 
         # Resize the image while maintaining aspect ratio
         scale = min(self.target_width / orig_width, self.target_height / orig_height)
         new_width, new_height = int(orig_width * scale), int(orig_height * scale)
         resized_image = cv2.resize(image, (new_width, new_height), interpolation=cv2.INTER_AREA)
-
+        
         # Calculate padding to maintain aspect ratio
         pad_x = (self.target_width - new_width) // 2
         pad_y = (self.target_height - new_height) // 2
 
         # Pad the resized image to the target dimensions
         processed_image = cv2.copyMakeBorder(resized_image, pad_y, pad_y, pad_x, pad_x, cv2.BORDER_CONSTANT, value=[0, 0, 0])
+
+        if processed_image.shape[1] == self.target_width - 1:
+            # Add one column of black pixels to the right side of the image
+            processed_image = cv2.copyMakeBorder(processed_image, 0, 0, 0, 1, cv2.BORDER_CONSTANT, value=[0, 0, 0])
+        # Check if the height is off by one pixel
+        if processed_image.shape[0] == self.target_height - 1:
+            # Add one row of black pixels to the bottom of the image
+            processed_image = cv2.copyMakeBorder(processed_image, 0, 1, 0, 0, cv2.BORDER_CONSTANT, value=[0, 0, 0])
 
         person_boxes = [self.adjust_bbox(box['fbox'], scale, pad_x, pad_y) for box in annotation['gtboxes'] if box['tag'] == 'person']
         mask_boxes = [self.adjust_bbox(box['fbox'], scale, pad_x, pad_y) for box in annotation['gtboxes'] if box['tag'] == 'mask']
@@ -168,6 +169,16 @@ class Preprocessor:
         # Save the processed image
         cv2.imwrite(new_path, processed_image_bgr)
 
+    def has_valid_contents(self, data):
+        # Check if 'persons' key exists and has bounding boxes
+        persons_exist = 'persons' in data and len(data['persons']) > 0
+        
+        # Check if 'masks' key exists and has bounding boxes
+        masks_exist = 'masks' in data and len(data['masks']) > 0
+
+        # Return True if either 'persons' or 'masks' have bounding boxes
+        return persons_exist or masks_exist
+
 # Dataloading
 def split_data(train_size:float, val_size:float, test_size:float, x_data:np.array, y_data):
     
@@ -187,58 +198,6 @@ def split_data(train_size:float, val_size:float, test_size:float, x_data:np.arra
     test_gt = y_data[val_end_idx:]
     
     return train_images, train_gt, val_images, val_gt, test_images, test_gt
-
-class CustomDataset(Dataset):
-    def __init__(self, images, ground_truths):
-        self.images = images  # A list or array of images
-        self.ground_truths = ground_truths  # A corresponding list of bounding box arrays
-
-    def __len__(self):
-        return len(self.images)
-
-    def __getitem__(self, idx):
-        # Convert images and bounding boxes to PyTorch tensors
-        image = torch.tensor(self.images[idx], dtype=torch.float)
-        bboxes = torch.tensor(self.ground_truths[idx], dtype=torch.float)
-        
-        # Construct the target dictionary
-        target = {}
-        target['boxes'] = bboxes
-        target['labels'] = torch.ones((len(bboxes),), dtype=torch.int64)  # Assuming all objects are class 1
-        
-        return image, target
-
-def collate_fn(batch):
-    images = [item[0] for item in batch]
-    targets = [item[1] for item in batch]
-
-    # Convert lists of tensors to a single tensor for the images
-    images = torch.stack(images, dim=0)
-
-    return images, targets
-
-def preprocess_image(image_path, target_width=600, target_height=480):
-    # Read the image
-    image = cv2.imread(image_path)
-    
-    # Calculate the aspect ratio
-    h, w, _ = image.shape
-    scale = min(target_width/w, target_height/h)
-    
-    # Resize the image
-    new_w, new_h = int(w * scale), int(h * scale)
-    resized = cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_AREA)
-    
-    # Create a new image with the target size and put the resized image into it
-    preprocessed = cv2.copyMakeBorder(resized, 
-                                      top=(target_height - new_h) // 2, 
-                                      bottom=(target_height - new_h) // 2, 
-                                      left=(target_width - new_w) // 2, 
-                                      right=(target_width - new_w) // 2, 
-                                      borderType=cv2.BORDER_CONSTANT, 
-                                      value=[0, 0, 0])  # Black padding
-    
-    return preprocessed
 
 # Output and export
 def export_to_onnx(onnx_base_path, onnx_name, model:nn.Module, checkpoint, input_size):
@@ -330,7 +289,7 @@ def model_summary(model, input_size):
 
 def save_checkpoint(current_epoch, model, optimiser, loss, checkpoint_file='./'):
     torch.save({
-        'ganme' : current_epoch,
+        'Epoch' : current_epoch,
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimiser.state_dict(),
         'loss': loss,
@@ -344,3 +303,33 @@ def load_checkpoint(directory):
         return checkpoint
     else:
         pass
+
+# Model performance logs
+class logger(object):
+    """docstring for logger."""
+    def __init__(self, log_dir):
+        super(logger, self).__init__()
+        # Initialize TensorBoard writer
+        self.writer = SummaryWriter(log_dir)
+        print(f'Logging run results to {log_dir}')
+
+    def log_hyperparameters(self, parameter_names_values):
+        hp_table = [f"| {name} | {value} |" for name, value in parameter_names_values]
+        table_str = "| Parameter | Value |\n|-----------|-------|\n" + "\n".join(hp_table)
+        self.writer.add_text("Hyperparameters", table_str, 0)
+
+    def write_to_tensorboard(self, epoch, loss):
+        """
+        Writes metrics to TensorBoard.
+        
+        Parameters:
+            writer (SummaryWriter): TensorBoard SummaryWriter object.
+            epoch (int): Current epoch number.
+            ep_reward (float): Total reward obtained in the episode.
+            epsilon (float): Current epsilon value for epsilon-greedy action selection.
+            loss (float): Loss value.
+        """
+        self.writer.add_scalar('Epoch Average Loss', loss, epoch)
+        # self.writer.add_scalar('Epsilon', epsilon, epoch)
+        # if loss is not None:
+        #     self.writer.add_scalar('Epoch Cumulative Loss', loss, epoch)

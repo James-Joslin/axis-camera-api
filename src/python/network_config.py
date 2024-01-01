@@ -11,19 +11,28 @@ class SqueezeNetConfig(object):
         self.LR = 0.0005
         self.BATCH = 4
         self.EPOCHS = 100
-        self.IMG_SIZE = (480, 640)
+        self.IMG_SIZE = (640, 360) # W x H
         
         self.WEIGHT_DECAY = 1e-4
         self.L1_LAMBDA = 0.001 
         
         with open('secrets.json', 'r') as file:
             secrets = json.load(file)
-            self.BASE_PATH = secrets['models']['SqueezeNet']
         file.close()
         
-        self.CHECKPOINT = os.path.join(self.BASE_PATH, f'{datetime.datetime.now().strftime("%H%M%S_%f")}.checkpoint')
-        self.TRAIN = False
-        self.TEST = False
-        if not os.path.exists(self.BASE_PATH):
-            os.makedirs(self.BASE_PATH)
+        self.TIMESTAMP = f'{datetime.datetime.now().strftime("%H%M%S_%f")}'
+
+        self.BASE_PATH_TORCH = secrets['models']['SqueezeNetTorch']
+        self.BASE_PATH_LOGS = secrets['models']['SqueezeNetLogs']
+
+        if not os.path.exists(self.BASE_PATH_TORCH):
+            os.makedirs(self.BASE_PATH_TORCH)
+        if not os.path.exists(self.BASE_PATH_LOGS):
+            os.makedirs(self.BASE_PATH_LOGS)
+
+        self.CHECKPOINT = os.path.join(self.BASE_PATH_TORCH, f'{self.TIMESTAMP}.checkpoint')
+        self.LOG = os.path.join(self.BASE_PATH_LOGS, f'{self.TIMESTAMP}')
+
+        self.TRAIN = True
+        self.TEST = True
             
