@@ -1,9 +1,13 @@
 import util
 from network_config import SqueezeNetConfig
 import os
+import json
 
 if __name__ == "__main__":
     config = SqueezeNetConfig()
+    with open('./secrets.json', 'r') as file:
+        secrets = json.load(file)
+    file.close()
 
     # train
     util.Preprocessor(
