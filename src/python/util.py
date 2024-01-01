@@ -17,6 +17,7 @@ import random
 import ast
 
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 import seaborn as sns
 from sklearn.model_selection import StratifiedShuffleSplit
 
@@ -34,10 +35,11 @@ import cv2
 from tqdm import tqdm
 
 class Preprocessor:
-    def __init__(self, image_directories, annotations_path, processed_image_dir, target_size=(600, 480)):
+    def __init__(self, image_directories, annotations_path, processed_image_dir, processed_annotations_dir, target_size=(600, 480)):
         self.image_directories = image_directories
         self.annotations_path = annotations_path
         self.processed_image_dir = processed_image_dir 
+        self.processed_annotations_dir = processed_annotations_dir
         self.target_width, self.target_height = target_size
 
         if not os.path.exists(self.processed_image_dir):
@@ -55,19 +57,23 @@ class Preprocessor:
         annotations = self.read_annotations(self.annotations_path)
         all_fboxes = []
 
-        for annotation in annotations:
+        for annotation in tqdm(annotations):
             image_id = annotation['ID']
             image_file = self.find_image(image_id)
             if image_file:
                 image = cv2.imread(image_file)
                 processed_image, adjusted_annotations = self.transform(image, annotation)
-                all_fboxes.append({'ID': image_id, 'fboxes': adjusted_annotations['fboxes']})
-
+                # self.plot_image_with_boxes(processed_image, adjusted_annotations, image_id, './src/python/temp/')
+                all_fboxes.append({
+                    'ID': image_id, 
+                    'persons': [box['fbox'] for box in adjusted_annotations['persons']],
+                    'masks': [box['fbox'] for box in adjusted_annotations['masks']]
+                })
                 # Optionally save the processed image
-                self.save_image(image_id, processed_image)
+                # self.save_image(image_id, processed_image)
 
         # Save all fboxes to a new JSON file
-        self.save_fboxes_json(all_fboxes)
+        self.save_fboxes_json(all_fboxes, "annotations")
 
     def find_image(self, image_id):
         for directory in self.image_directories:
@@ -80,7 +86,7 @@ class Preprocessor:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
         orig_height, orig_width, _ = image.shape
-        boxes = annotation['gtboxes']
+        # boxes = annotation['gtboxes']
 
         # Resize the image while maintaining aspect ratio
         scale = min(self.target_width / orig_width, self.target_height / orig_height)
@@ -94,12 +100,14 @@ class Preprocessor:
         # Pad the resized image to the target dimensions
         processed_image = cv2.copyMakeBorder(resized_image, pad_y, pad_y, pad_x, pad_x, cv2.BORDER_CONSTANT, value=[0, 0, 0])
 
-        # Adjust bounding boxes
-        adjusted_boxes = [self.adjust_bbox(box['fbox'], scale, pad_x, pad_y) for box in boxes]
+        person_boxes = [self.adjust_bbox(box['fbox'], scale, pad_x, pad_y) for box in annotation['gtboxes'] if box['tag'] == 'person']
+        mask_boxes = [self.adjust_bbox(box['fbox'], scale, pad_x, pad_y) for box in annotation['gtboxes'] if box['tag'] == 'mask']
 
         # Update the annotations with adjusted bounding boxes
-        adjusted_annotations = annotation.copy()
-        adjusted_annotations['gtboxes'] = [{'fbox': box} for box in adjusted_boxes]
+        adjusted_annotations = {
+            'persons': [{'fbox': box} for box in person_boxes],
+            'masks': [{'fbox': box} for box in mask_boxes]
+        }
 
         return processed_image, adjusted_annotations
 
@@ -111,8 +119,38 @@ class Preprocessor:
         h = int(h * scale)
         return [x, y, w, h]
 
-    def save_fboxes_json(self, all_fboxes):
-        with open('processed_fboxes.json', 'w') as file:
+    def plot_image_with_boxes(self, image, adjusted_annotations, image_id, save_dir):
+        # Create the save directory if it doesn't exist
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
+
+        fig, ax = plt.subplots(1)
+        ax.imshow(image)
+
+        # Loop through each bounding box and add a rectangle to the plot
+        for bbox in adjusted_annotations['persons']:
+            fbox = bbox['fbox']
+            rect = patches.Rectangle((fbox[0], fbox[1]), fbox[2], fbox[3], linewidth=1, edgecolor='r', facecolor='none')
+            ax.add_patch(rect)
+
+        # Plot 'mask' bounding boxes
+        for bbox in adjusted_annotations['masks']:
+            fbox = bbox['fbox']
+            rect = patches.Rectangle((fbox[0], fbox[1]), fbox[2], fbox[3], linewidth=1, edgecolor='b', facecolor='none')
+            ax.add_patch(rect)
+
+        # Define the path for the plot
+        plot_path = os.path.join(save_dir, f"{image_id}.png")
+
+        # Save the figure
+        plt.title(f"Image ID: {image_id}")
+        plt.axis('off')  # Optional: turn off the axis for a cleaner image
+        plt.savefig(plot_path, bbox_inches='tight')
+        plt.close()  # Close the plot to free up memory
+
+    def save_fboxes_json(self, all_fboxes, file_name):
+        path = os.path.join(self.processed_annotations_dir, file_name)
+        with open(f'{path}.json', 'w') as file:
             json.dump(all_fboxes, file, indent=4)
         file.close()
 

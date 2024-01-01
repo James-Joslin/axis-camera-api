@@ -434,3 +434,8 @@ yarn-error.log*
 
 secrets.json
 src/python/*json
+
+*.jpg
+*.odgt
+*.txt
+*.png
