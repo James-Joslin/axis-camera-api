@@ -437,5 +437,6 @@ src/python/*json
 
 *.jpg
 *.odgt
-*.txt
+*cookie.txt
 *.png
+*annotations.json
