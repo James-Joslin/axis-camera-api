@@ -22,9 +22,14 @@ class FPN(nn.Module):
         for feature, inner_block, layer_block in zip(
             reversed(x[:-1]), reversed(self.inner_blocks[:-1]), reversed(self.layer_blocks[:-1])
         ):
-            inner_top_down = F.interpolate(last_inner, scale_factor=2, mode="nearest")
+            # Upsample 'last_inner' to match the spatial dimensions of 'inner_lateral'
             inner_lateral = inner_block(feature)
+            inner_top_down = F.interpolate(last_inner, size=inner_lateral.shape[2:], mode="nearest")
+            
+            # Element-wise addition
             last_inner = inner_lateral + inner_top_down
+            
+            # Pass the combined features through the next layer block and add to results
             results.insert(0, layer_block(last_inner))
 
         return results
@@ -82,8 +87,8 @@ class CustomSqueezeNet(nn.Module):
         # Final convolution (no softmax)
         self.conv10 = nn.Conv2d(512, 512, kernel_size=1)  # The output channels can be adjusted
 
-        self.fpn = FPN(in_channels_list=[128, 128, 192, 256], out_channels=256)
-
+        self.fpn = FPN(in_channels_list=[256, 256, 384, 512], out_channels=256)
+        
     def forward(self, x):
         x = self.maxpool(self.relu(self.conv1(x)))
         f2 = self.fire2(x)
@@ -96,7 +101,6 @@ class CustomSqueezeNet(nn.Module):
         f8 = self.fire8(f7)
         x = self.maxpool3(f8)
         f9 = self.fire9(x)
-        x = self.conv10(f9)
 
         # Collect selected feature maps
         feature_maps = [f4, f5, f7, f9]

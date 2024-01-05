@@ -15,16 +15,16 @@ import random
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
-
 import json
 import os
 import cv2
 
 from tqdm import tqdm
 
-from glob import glob
-
 from torch.utils.tensorboard import SummaryWriter
+
+import torchvision.transforms as transforms
+from torchvision.datasets import ImageFolder
 
 # Data prep
 class Preprocessor:
@@ -203,20 +203,24 @@ def split_data(train_size:float, val_size:float, test_size:float, x_data:np.arra
     return train_images, train_gt, val_images, val_gt, test_images, test_gt
 
 # loading to data and ground truth tensors
-class datasetBuilder(Dataset):
-    """docstring for datasetBuilder."""
-    def __init__(self, data : str, annotations : str):
-        super(datasetBuilder, self).__init__()
+class DatasetBuilder(Dataset):
+    def __init__(self, data: str, annotations: str):
+        super(DatasetBuilder, self).__init__()
         self.data = data
-        with open(os.path.join(annotations, "annotations.json"), 'r') as file:
+        with open(os.path.join(annotations.strip(), "annotations.json"), 'r') as file:
             self.ground_truth = json.load(file)
         file.close()
     
-    def build_datasets(self):
-        images = []
-        for line in tqdm(self.ground_truth):
-            id = line['ID']
-            images.append(self.load_image(id))
+    def __len__(self):
+        return len(self.ground_truth)
+
+    def __getitem__(self, idx):
+        line = self.ground_truth[idx]
+        id = line['ID']
+        image = self.load_image(id)
+        # Ensure your annotations are formatted as a tensor or a dictionary that can be processed later
+        ground_truth = {'persons': line['persons'], 'masks': line['masks']}
+        return image, ground_truth
 
     def load_image(self, id: str):
         image_dir = os.path.join(self.data, f'{id}.jpg')
@@ -224,7 +228,24 @@ class datasetBuilder(Dataset):
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         image = np.float32(image/255)
         image = np.transpose(image, (2,0,1))
-        return image    
+        return torch.tensor(image)
+
+def collate_fn(batch):
+    images = []
+    annotations = []
+
+    for img, annot in batch:
+        images.append(img)  # Add image tensor to list
+
+        # Convert annotations to tensor and add to list
+        persons = torch.tensor(annot['persons'], dtype=torch.float32)
+        masks = torch.tensor(annot['masks'], dtype=torch.float32)
+        annotations.append({'persons': persons, 'masks': masks})
+
+    # Stack all image tensors together
+    images = torch.stack(images)
+
+    return images, annotations
 
 # Output and export
 def export_to_onnx(onnx_base_path, onnx_name, model:nn.Module, checkpoint, input_size):
@@ -281,20 +302,35 @@ def model_summary(model, input_size):
             num_params = sum(p.numel() for p in module.parameters())
             total_params += num_params
 
-            # Remove torch.Size
-            if isinstance(output, tuple):
-                output_shape = [str(list(o.shape)) if torch.is_tensor(o) else str(type(o)) for o in output]
-                # Pick first size if there are multiple identical sizes in the tuple
-                output_shape = output_shape[0]
-            else:
+            # Initialize output_shape variable
+            output_shape = "Undefined"
+
+            # Check if output is a tensor
+            if torch.is_tensor(output):
                 output_shape = str(list(output.shape))
 
+            # Check if output is a tuple of tensors
+            elif isinstance(output, tuple):
+                output_shape = [str(list(o.shape)) if torch.is_tensor(o) else str(type(o)) for o in output]
+                output_shape = output_shape[0]  # Pick first size if there are multiple identical sizes in the tuple
+
+            # Check if output is a list of tensors
+            elif isinstance(output, list):
+                output_shape = [str(list(o.shape)) for o in output if torch.is_tensor(o)]
+                output_shape = ', '.join(output_shape)  # Combine all shapes into a single string
+
+            # Handle other types of output (if any)
+            else:
+                output_shape = str(type(output))
+
+            # Print layer details
             if len(list(module.named_children())) == 0:  # Only print leaf nodes
                 print(f"{module.__class__.__name__.ljust(25)}  {output_shape.ljust(25)} {f'{num_params:,}'}")
 
+        # Register hook if the module is not a container of other modules
         if not isinstance(module, nn.Sequential) and \
-           not isinstance(module, nn.ModuleList) and \
-           not (module == model):
+        not isinstance(module, nn.ModuleList) and \
+        not (module == model):
             hooks.append(module.register_forward_hook(hook))
 
     hooks = []
