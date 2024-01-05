@@ -1,8 +1,33 @@
-import network_config
+from network_config import SqueezeNetConfig
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+class FPN(nn.Module):
+    def __init__(self, in_channels_list, out_channels):
+        super(FPN, self).__init__()
+        self.inner_blocks = nn.ModuleList()
+        self.layer_blocks = nn.ModuleList()
+
+        for in_channels in in_channels_list:
+            self.inner_blocks.append(nn.Conv2d(in_channels, out_channels, 1))
+            self.layer_blocks.append(nn.Conv2d(out_channels, out_channels, 3, padding=1))
+
+    def forward(self, x):
+        last_inner = self.inner_blocks[-1](x[-1])
+        results = []
+        results.append(self.layer_blocks[-1](last_inner))
+
+        for feature, inner_block, layer_block in zip(
+            reversed(x[:-1]), reversed(self.inner_blocks[:-1]), reversed(self.layer_blocks[:-1])
+        ):
+            inner_top_down = F.interpolate(last_inner, scale_factor=2, mode="nearest")
+            inner_lateral = inner_block(feature)
+            last_inner = inner_lateral + inner_top_down
+            results.insert(0, layer_block(last_inner))
+
+        return results
 
 class FireWithBypass(nn.Module):
     def __init__(self, in_channels, squeeze_channels, expand_channels):
@@ -57,20 +82,29 @@ class CustomSqueezeNet(nn.Module):
         # Final convolution (no softmax)
         self.conv10 = nn.Conv2d(512, 512, kernel_size=1)  # The output channels can be adjusted
 
+        self.fpn = FPN(in_channels_list=[128, 128, 192, 256], out_channels=256)
+
     def forward(self, x):
         x = self.maxpool(self.relu(self.conv1(x)))
-        x = self.fire2(x)
-        x = self.fire3(x)
-        x = self.fire4(x)
-        x = self.maxpool2(x)
-        x = self.fire5(x)
-        x = self.fire6(x)
-        x = self.fire7(x)
-        x = self.fire8(x)
-        x = self.maxpool3(x)
-        x = self.fire9(x)
-        x = self.conv10(x)
-        return x
+        f2 = self.fire2(x)
+        f3 = self.fire3(f2)
+        f4 = self.fire4(f3)
+        x = self.maxpool2(f4)
+        f5 = self.fire5(x)
+        f6 = self.fire6(f5)
+        f7 = self.fire7(f6)
+        f8 = self.fire8(f7)
+        x = self.maxpool3(f8)
+        f9 = self.fire9(x)
+        x = self.conv10(f9)
+
+        # Collect selected feature maps
+        feature_maps = [f4, f5, f7, f9]
+
+        # Pass feature maps through FPN
+        fpn_feature_maps = self.fpn(feature_maps)
+
+        return fpn_feature_maps
 
 class RPN(nn.Module):
     def __init__(self, anchor_scales, anchor_ratios, feature_channels, mid_channels=256):
@@ -107,10 +141,16 @@ class RPN(nn.Module):
 class ObjectDetector(nn.Module):
     def __init__(self):
         super(ObjectDetector, self).__init__()
-        self.backbone = CustomSqueezeNet()  # Your SqueezeNet model
-        self.rpn = RPN(anchor_scales=[128, 256, 512], anchor_ratios=[0.5, 1, 2], feature_channels=512)
+        self.backbone = CustomSqueezeNet()  # Updated backbone
+        self.rpn = RPN(anchor_scales=[128, 256, 512], anchor_ratios=[0.5, 1, 2], feature_channels=256)  # Update channels if needed
 
     def forward(self, x):
         features = self.backbone(x)
-        rpn_logits, rpn_bbox_regs = self.rpn(features)
+        # Assume RPN takes a list of feature maps
+        rpn_logits = []
+        rpn_bbox_regs = []
+        for feature in features:
+            logits, bbox_regs = self.rpn(feature)
+            rpn_logits.append(logits)
+            rpn_bbox_regs.append(bbox_regs)
         return rpn_logits, rpn_bbox_regs

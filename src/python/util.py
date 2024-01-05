@@ -22,6 +22,8 @@ import cv2
 
 from tqdm import tqdm
 
+from glob import glob
+
 from torch.utils.tensorboard import SummaryWriter
 
 # Data prep
@@ -180,6 +182,7 @@ class Preprocessor:
         return persons_exist or masks_exist
 
 # Dataloading
+# split not needed, data already loaded into train and val dirs
 def split_data(train_size:float, val_size:float, test_size:float, x_data:np.array, y_data):
     
     assert 1 - (train_size + val_size + test_size) < 1e-6
@@ -198,6 +201,30 @@ def split_data(train_size:float, val_size:float, test_size:float, x_data:np.arra
     test_gt = y_data[val_end_idx:]
     
     return train_images, train_gt, val_images, val_gt, test_images, test_gt
+
+# loading to data and ground truth tensors
+class datasetBuilder(Dataset):
+    """docstring for datasetBuilder."""
+    def __init__(self, data : str, annotations : str):
+        super(datasetBuilder, self).__init__()
+        self.data = data
+        with open(os.path.join(annotations, "annotations.json"), 'r') as file:
+            self.ground_truth = json.load(file)
+        file.close()
+    
+    def build_datasets(self):
+        images = []
+        for line in tqdm(self.ground_truth):
+            id = line['ID']
+            images.append(self.load_image(id))
+
+    def load_image(self, id: str):
+        image_dir = os.path.join(self.data, f'{id}.jpg')
+        image = cv2.imread(image_dir)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        image = np.float32(image/255)
+        image = np.transpose(image, (2,0,1))
+        return image    
 
 # Output and export
 def export_to_onnx(onnx_base_path, onnx_name, model:nn.Module, checkpoint, input_size):
