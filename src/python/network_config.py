@@ -16,6 +16,11 @@ class SqueezeNetConfig(object):
         self.WEIGHT_DECAY = 1e-4
         self.L1_LAMBDA = 0.001 
         
+        self.ANCHOR_RATIO = [0.5, 0.75, 1, 1.25, 1.5, 2]
+        self.ANCHOR_SCALE = [64, 128, 256, 512, 1024, 2048]
+        self.ANCHOR_BASE_SIZE = 16
+        self.RPN_OUT = 256
+        
         with open('secrets.json', 'r') as file:
             secrets = json.load(file)
         file.close()
