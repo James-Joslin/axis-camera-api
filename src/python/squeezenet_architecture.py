@@ -247,72 +247,54 @@ def _mkanchors(ws, hs, x_ctr, y_ctr):
 
 def apply_deltas_to_anchors(anchors, deltas):
     anchors = anchors.to(deltas.device)
-
+    
     num_anchors = anchors.shape[0]  # The number of anchors you have
-    print(f"Number of anchors: {num_anchors}")
     assert num_anchors * 4 == deltas.shape[1], f"Mismatch in number of anchors (expected {num_anchors * 4}, got {deltas.shape[1]})"
-
+    
+    # Calculate widths, heights, and centers of the anchors
     widths = anchors[:, 2] - anchors[:, 0] + 1.0
     heights = anchors[:, 3] - anchors[:, 1] + 1.0
     ctr_x = anchors[:, 0] + 0.5 * widths
     ctr_y = anchors[:, 1] + 0.5 * heights
-
-    print(f"Widths shape: {widths.shape}")
-    print(f"Heights shape: {heights.shape}")
-    print(f"Center X shape: {ctr_x.shape}")
-    print(f"Center Y shape: {ctr_y.shape}")
-
+    
+    # Extract deltas for each anchor
     dx = deltas[:, 0::4]
     dy = deltas[:, 1::4]
     dw = deltas[:, 2::4]
     dh = deltas[:, 3::4]
-
-    print(f"Delta dx shape: {dx.shape}")
-    print(f"Delta dy shape: {dy.shape}")
-    print(f"Delta dw shape: {dw.shape}")
-    print(f"Delta dh shape: {dh.shape}")
-
+    
+    # Expand widths, heights, and centers to match the shape of deltas
     widths_expanded = widths.view(1, num_anchors, 1, 1).expand_as(dx)
     heights_expanded = heights.view(1, num_anchors, 1, 1).expand_as(dy)
     ctr_x_expanded = ctr_x.view(1, num_anchors, 1, 1).expand_as(dx)
     ctr_y_expanded = ctr_y.view(1, num_anchors, 1, 1).expand_as(dy)
-
-    print(f"Expanded widths shape: {widths_expanded.shape}")
-    print(f"Expanded heights shape: {heights_expanded.shape}")
-    print(f"Expanded center X shape: {ctr_x_expanded.shape}")
-    print(f"Expanded center Y shape: {ctr_y_expanded.shape}")
-
-    # Calculations
+    
+    # Apply the deltas to the anchors to get the predicted boxes
     pred_ctr_x = dx * widths_expanded + ctr_x_expanded
     pred_ctr_y = dy * heights_expanded + ctr_y_expanded
     pred_w = torch.exp(dw) * widths_expanded
     pred_h = torch.exp(dh) * heights_expanded
-
-    print(f"Predicted center X shape: {pred_ctr_x.shape}")
-    print(f"Predicted center Y shape: {pred_ctr_y.shape}")
-    print(f"Predicted width shape: {pred_w.shape}")
-    print(f"Predicted height shape: {pred_h.shape}")
-
-    # Ensure the last dimension is correct for assignment
-    pred_ctr_x = pred_ctr_x.view(*pred_ctr_x.shape[:-1], -1)
-    pred_ctr_y = pred_ctr_y.view(*pred_ctr_y.shape[:-1], -1)
-    pred_w = pred_w.view(*pred_w.shape[:-1], -1)
-    pred_h = pred_h.view(*pred_h.shape[:-1], -1)
-
-    print(f"Predicted center X shape (after .view() function): {pred_ctr_x.shape}")
-    print(f"Predicted center Y shape (after .view() function): {pred_ctr_y.shape}")
-    print(f"Predicted width shape (after .view() function): {pred_w.shape}")
-    print(f"Predicted height shape (after .view() function): {pred_h.shape}")    
-
-    # Predicted boxes
+    
+    # Calculate the top-left and bottom-right coordinates
+    top_left_x = pred_ctr_x - 0.5 * pred_w
+    top_left_y = pred_ctr_y - 0.5 * pred_h
+    bottom_right_x = pred_ctr_x + 0.5 * pred_w
+    bottom_right_y = pred_ctr_y + 0.5 * pred_h
+    
+    # Initialize pred_boxes tensor
     pred_boxes = torch.zeros_like(deltas)
-# Reshape and assign values to pred_boxes directly without using striding
-    pred_boxes[:, 0::4, :, :] = (pred_ctr_x - 0.5 * pred_w).view(2, 36, 89, 159)[:, :, :22, :39]
-    pred_boxes[:, 1::4, :, :] = (pred_ctr_y - 0.5 * pred_h).view(2, 36, 89, 159)[:, :, :22, :39]
-    pred_boxes[:, 2::4, :, :] = (pred_ctr_x + 0.5 * pred_w).view(2, 36, 89, 159)[:, :, :22, :39]
-    pred_boxes[:, 3::4, :, :] = (pred_ctr_y + 0.5 * pred_h).view(2, 36, 89, 159)[:, :, :22, :39]
-
-    print(f"Final predicted boxes shape: {pred_boxes.shape}")
-
+    
+    # Interpolate the predicted box coordinates to match the shape of deltas
+    target_shape = deltas.shape[-2:]  # Spatial dimensions of the target shape
+    top_left_x = F.interpolate(top_left_x, size=target_shape, mode='bilinear', align_corners=False)
+    top_left_y = F.interpolate(top_left_y, size=target_shape, mode='bilinear', align_corners=False)
+    bottom_right_x = F.interpolate(bottom_right_x, size=target_shape, mode='bilinear', align_corners=False)
+    bottom_right_y = F.interpolate(bottom_right_y, size=target_shape, mode='bilinear', align_corners=False)
+    
+    # Assign the interpolated values to pred_boxes
+    pred_boxes[:, 0::4, :, :] = top_left_x
+    pred_boxes[:, 1::4, :, :] = top_left_y
+    pred_boxes[:, 2::4, :, :] = bottom_right_x
+    pred_boxes[:, 3::4, :, :] = bottom_right_y
+    
     return pred_boxes
-

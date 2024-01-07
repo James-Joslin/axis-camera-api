@@ -21,6 +21,9 @@ class SqueezeNetConfig(object):
         self.ANCHOR_BASE_SIZE = 16
         self.RPN_OUT = 256
         
+        self.CONFIDENCE_THRESHOLD = 0.5
+        self.NMS_THRESHOLD = 0.3
+        
         with open('secrets.json', 'r') as file:
             secrets = json.load(file)
         file.close()
