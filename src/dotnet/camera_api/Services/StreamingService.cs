@@ -61,12 +61,12 @@ namespace axis_api.services
             string stillsPath = $"{stillsDir}/frame%d.jpeg";
 
             // Construct the GStreamer pipeline
-            string pipeline = $"sudo GST_DEBUG=3 gst-launch-1.0 rtspsrc location={rtspUrl} protocols=tcp " +
-                            $"latency=200 ! rtph264depay ! h264parse config-interval=-1 ! tee name=t " +
-                            $"t. ! queue ! h264parse ! mpegtsmux name=mux ! hlssink location={hlsPath} " +
-                            $"playlist-root=./ playlist-location={hlsPlaylistPath} max-files=30 target-duration=1 " +
-                            $"t. ! queue ! avdec_h264 ! videoconvert ! videorate ! video/x-raw,framerate=5/1 ! jpegenc ! multifilesink location={stillsPath} max-files=20 sync=false " +
-                            $"t. ! queue ! splitmuxsink location={shortTermPath} max-size-time=120000000000 max-files=45";
+            string pipeline = 
+                $"sudo GST_DEBUG=1 gst-launch-1.0 rtspsrc location={rtspUrl} latency=240 protocols=tcp ! rtph264depay" +
+                $"! queue ! h264parse config-interval=-1 ! video/x-h264,stream-format=byte-stream,alignment=au ! tee name=t " +
+                $"t. ! queue ! hlssink location={hlsPath} playlist-root=./ playlist-location={hlsPlaylistPath} max-files=60 target-duration= 2 " +
+                $"t. ! queue ! avdec_h264 ! videoconvert ! videorate ! video/x-raw,framerate=5/1 ! jpegenc ! multifilesink location={stillsPath} max-files=20 sync=false " +
+                $"t. ! queue ! h264parse config-interval=-1 ! splitmuxsink location={shortTermPath} max-size-time=120000000000 max-files=45";
 
 
             // Define process start info
