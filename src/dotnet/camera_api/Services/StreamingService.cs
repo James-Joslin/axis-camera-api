@@ -68,7 +68,6 @@ namespace axis_api.services
                 $"t. ! queue ! avdec_h264 ! videoconvert ! videorate ! video/x-raw,framerate=5/1 ! jpegenc ! multifilesink location={stillsPath} max-files=20 sync=false " +
                 $"t. ! queue ! h264parse config-interval=-1 ! splitmuxsink location={shortTermPath} max-size-time=120000000000 max-files=45";
 
-
             // Define process start info
             var startInfo = new ProcessStartInfo
             {
