@@ -9,27 +9,10 @@ from network_config import SqueezeNetConfig
 from squeezenet_architecture import ObjectDetector, generate_anchors, apply_deltas_to_anchors
 
 import torch
+from torch.optim import Adam
 
-def test_anchor_generation():
-    print("testing anchor outputs")
-    # Generate anchors
-    anchors = generate_anchors(base_size=16, ratios=[0.5, 0.75, 1, 1.25, 1.5, 2], scales=[64, 128, 256, 512, 1024, 2048])
-    print("Generated anchors shape:", anchors.shape)
-
-    # Assert the number of anchors
-    assert anchors.shape[0] == 36, "Total number of anchors does not match model's expectation."
-
-def test_apply_deltas_to_anchors():
-    print("testing delta outputs")
-    # Generate some dummy deltas (similar to what your RPN would output)
-    dummy_deltas = torch.randn(1, 36, 14, 14, 4)  # Shape: [batch, anchors, height, width, 4]
-    
-    # Generate anchors
-    anchors = generate_anchors(base_size=16, ratios=[0.5, 0.75, 1, 1.25, 1.5, 2], scales=[64, 128, 256, 512, 1024, 2048])
-    
-    # Apply deltas to anchors (Assuming you have a function like 'apply_deltas_to_anchors')
-    decoded_boxes = apply_deltas_to_anchors(anchors, dummy_deltas)
-    print("Decoded boxes shape:", decoded_boxes.shape)
+import os
+# os.environ['CUDA_LAUNCH_BLOCKING'] = "0"
 
 if __name__ == "__main__":
     # Config
@@ -59,6 +42,7 @@ if __name__ == "__main__":
 
     # model
     model = ObjectDetector().to(squeezeNet_config.DEVICE)
+    optimiser = Adam(model.parameters(), lr=squeezeNet_config.LR, weight_decay=squeezeNet_config.WEIGHT_DECAY)
     # util.model_summary(model, (3, 360, 640))
     
     # training loop
@@ -76,15 +60,17 @@ if __name__ == "__main__":
                 device_annot = {k: v.to(squeezeNet_config.DEVICE) for k, v in annot.items()}
                 device_annotations.append(device_annot)
 
-            # for item in device_annotations:
-            #     print(item)
+            for item in device_annotations:
+                print(item)
 
             rpn_probs, rpn_bbox_regs = model.forward(images)
+            
             anchors = generate_anchors(squeezeNet_config.ANCHOR_BASE_SIZE, squeezeNet_config.ANCHOR_RATIO, squeezeNet_config.ANCHOR_SCALE)
-            # print(anchors.shape)
+            print(f'Anchors Shape: {anchors.shape}')
             
             # Step 1: Reshape Predicted Bounding Boxes
             decoded_boxes = [apply_deltas_to_anchors(anchors, bbox_reg) for bbox_reg in rpn_bbox_regs]
+            print(f'Shape of each batch of decoded boxes: {decoded_boxes[0].shape}')
             for i, boxes in enumerate(decoded_boxes):
                 batch_size, _, height, width = boxes.shape
                 decoded_boxes[i] = boxes.view(batch_size, anchors.shape[0], 4, height, width)
@@ -103,14 +89,46 @@ if __name__ == "__main__":
             total_classification_loss = 0
             total_localization_loss = 0
             for i, (probs, boxes) in enumerate(zip(rpn_probs, decoded_boxes)):
+                
+
                 # Filter out low-confidence predictions
                 high_confidence_idxs = (probs > squeezeNet_config.CONFIDENCE_THRESHOLD).nonzero(as_tuple=True)
+                print(f"Shape of boxes: {boxes.shape}")
+                print(f"high_confidence_idxs: {high_confidence_idxs}")
+                
                 filtered_probs = probs[high_confidence_idxs]
+                print(f'probs/scores shape: {filtered_probs.shape}')
                 filtered_boxes = boxes[high_confidence_idxs]
+                print(f'boxes shape: {filtered_boxes.shape}')
+                
+                # Ensure all tensors are on the same device
+                if filtered_boxes.device != filtered_probs.device:
+                    raise ValueError("filtered_boxes and filtered_probs tensors are not on the same device")
+
+                # Check for NaN or infinite values in tensors
+                if torch.isnan(filtered_boxes).any() or torch.isinf(filtered_boxes).any():
+                    raise ValueError("filtered_boxes tensor contains NaN or infinite values")
+
+                if torch.isnan(filtered_probs).any() or torch.isinf(filtered_probs).any():
+                    raise ValueError("filtered_probs tensor contains NaN or infinite values")
                 
                 # Apply NMS
-                keep_idxs = torchvision.ops.nms(filtered_boxes, filtered_probs, squeezeNet_config.NMS_THRESHOLD)
-                final_boxes = filtered_boxes[keep_idxs]
+                keep_idxs = torchvision.ops.nms(filtered_boxes.cpu(), filtered_probs.cpu(), squeezeNet_config.NMS_THRESHOLD)
                 final_scores = filtered_probs[keep_idxs]
+                final_boxes = filtered_boxes[keep_idxs]
                 
-            
+                print(f'final boxes (scores/probs): {final_scores.shape}', f'final boxes (reg): {final_boxes.shape}')
+                
+                # Calculate losses, assuming you have a function to do so
+                classification_loss, localization_loss = calculate_losses(final_boxes, final_scores, device_annotations[i])
+                total_classification_loss += classification_loss
+                total_localization_loss += localization_loss
+
+            # Step 6: Backpropagation and Update
+            total_loss = total_classification_loss + total_localization_loss
+            optimiser.zero_grad()
+            total_loss.backward()
+            optimiser.step()
+
+            # Log or print your loss here
+            print(f"Epoch {epoch}, Total Loss: {total_loss.item()}")

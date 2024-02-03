@@ -2,12 +2,13 @@ import util
 import json
 import datetime
 import os
+from torch.optim import Adam
 
 class SqueezeNetConfig(object):
     """Neural network training config to hold hyperparemters"""
     def __init__(self):
-        self.DEVICE = util.check_gpu()
-        self.SEED = 42
+        self.DEVICE = 'cpu' #util.check_gpu()
+        self.SEED = 10
         self.LR = 0.0005
         self.BATCH = 4
         self.EPOCHS = 100
@@ -16,12 +17,12 @@ class SqueezeNetConfig(object):
         self.WEIGHT_DECAY = 1e-4
         self.L1_LAMBDA = 0.001 
         
-        self.ANCHOR_RATIO = [0.5, 0.75, 1, 1.25, 1.5, 2]
-        self.ANCHOR_SCALE = [64, 128, 256, 512, 1024, 2048]
+        self.ANCHOR_RATIO = [0.5, 1, 2]
+        self.ANCHOR_SCALE = [64, 256, 2048]
         self.ANCHOR_BASE_SIZE = 16
         self.RPN_OUT = 256
         
-        self.CONFIDENCE_THRESHOLD = 0.5
+        self.CONFIDENCE_THRESHOLD = 0.515
         self.NMS_THRESHOLD = 0.3
         
         with open('secrets.json', 'r') as file:
