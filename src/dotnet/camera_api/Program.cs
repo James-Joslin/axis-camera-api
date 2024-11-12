@@ -22,7 +22,7 @@ builder.WebHost.ConfigureKestrel(serverOptions =>
 {
     serverOptions.ListenLocalhost(5001, listenOptions =>
     {
-        listenOptions.UseHttps("certificate.pfx", "Le$ter1345");
+        listenOptions.UseHttps("certificate.pfx", "<secret>");
     });
 });
 
